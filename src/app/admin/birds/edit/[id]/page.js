@@ -1,0 +1,141 @@
+'use client'
+
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { updateBird, deleteBird } from '@/lib/action';
+import { supabase } from '@/lib/supabase';
+import { ArrowLeft, Loader2, CheckCircle, Trash2, AlertTriangle, X } from 'lucide-react';
+import Link from 'next/link';
+
+export default function EditBirdPage() {
+  const { id } = useParams();
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
+  const [status, setStatus] = useState({ type: '', message: '' });
+  const [birdData, setBirdData] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  useEffect(() => {
+    async function getBird() {
+      const { data } = await supabase.from('birds').select('*').eq('id', id).single();
+      if (data) setBirdData(data);
+      setFetching(false);
+    }
+    getBird();
+  }, [id]);
+
+  async function handleUpdate(event) {
+    event.preventDefault();
+    setLoading(true);
+    const formData = new FormData(event.currentTarget);
+    const result = await updateBird(id, formData);
+
+    if (result.success) {
+      setStatus({ type: 'success', message: 'Data berhasil diperbarui!' });
+      // Kembali ke halaman /user setelah 1.5 detik
+      setTimeout(() => router.push('/user'), 1500);
+    } else {
+      setStatus({ type: 'error', message: result.error });
+    }
+    setLoading(false);
+  }
+
+  async function confirmDelete() {
+    setLoading(true);
+    const result = await deleteBird(id);
+    
+    if (result.success) {
+      setShowDeleteModal(false);
+      setStatus({ type: 'success', message: 'Produk berhasil dihapus!' });
+      
+      // router.refresh() agar data di halaman /user diperbarui
+      router.refresh(); 
+
+      // Kembali ke halaman /user setelah 1.5 detik
+      setTimeout(() => {
+        router.push('/user');
+      }, 1500);
+    } else {
+      setStatus({ type: 'error', message: result.error });
+      setLoading(false);
+      setShowDeleteModal(false);
+    }
+  }
+
+  if (fetching) return <div className="p-20 text-center font-bold">Memuat data...</div>;
+
+  return (
+    <div className="p-8 max-w-4xl mx-auto min-h-screen relative">
+      
+      {/* MODAL KONFIRMASI HAPUS */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">
+            <div className="flex flex-col items-center text-center">
+              <div className="bg-red-100 p-4 rounded-full text-red-600 mb-4">
+                <AlertTriangle size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Hapus Burung?</h3>
+              <p className="text-gray-500 mb-8 text-sm">
+                Apakah Anda yakin ingin menghapus <strong>{birdData?.name}</strong>? Data akan hilang permanen.
+              </p>
+              <div className="flex gap-3 w-full">
+                <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-3 px-4 bg-gray-100 text-gray-600 font-bold rounded-2xl">Batal</button>
+                <button onClick={confirmDelete} disabled={loading} className="flex-1 py-3 px-4 bg-red-600 text-white font-bold rounded-2xl flex justify-center items-center gap-2">
+                  {loading ? <Loader2 className="animate-spin" size={18} /> : "Ya, Hapus"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Link href="/user" className="inline-flex items-center gap-2 text-gray-500 mb-6 hover:text-blue-600 transition">
+        <ArrowLeft size={20} /> Kembali
+      </Link>
+
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-800">Edit Burung</h1>
+        <button onClick={() => setShowDeleteModal(true)} className="bg-red-50 text-red-500 px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-red-600 hover:text-white transition font-semibold">
+          <Trash2 size={18} /> Hapus Produk
+        </button>
+      </div>
+
+      {status.message && (
+        <div className={`p-4 mb-6 rounded-2xl text-white flex items-center gap-2 shadow-lg ${status.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
+          {status.type === 'success' ? <CheckCircle size={20} /> : <X size={20} />}
+          <span className="font-bold">{status.message}</span>
+        </div>
+      )}
+
+      <form onSubmit={handleUpdate} className="bg-white p-8 rounded-3xl shadow-xl border grid grid-cols-1 md:grid-cols-2 gap-6">
+        <input type="hidden" name="old_image_url" defaultValue={birdData?.image_url} />
+        <div className="flex flex-col gap-2">
+          <label className="font-bold text-gray-600 text-sm">Nama Burung</label>
+          <input name="name" defaultValue={birdData?.name} className="border-2 p-3 rounded-xl focus:border-blue-500 outline-none transition" required />
+        </div>
+        <div className="flex flex-col gap-2">
+          <label className="font-bold text-gray-600 text-sm">Spesies</label>
+          <input name="species" defaultValue={birdData?.species} className="border-2 p-3 rounded-xl focus:border-blue-500 outline-none transition" />
+        </div>
+        <div className="flex flex-col gap-2">
+          <label className="font-bold text-gray-600 text-sm">Harga (Rp)</label>
+          <input name="price" type="number" defaultValue={birdData?.price} className="border-2 p-3 rounded-xl focus:border-blue-500 outline-none transition" required />
+        </div>
+        <div className="flex flex-col gap-2">
+          <label className="font-bold text-gray-600 text-sm">Stok</label>
+          <input name="stock" type="number" defaultValue={birdData?.stock} className="border-2 p-3 rounded-xl focus:border-blue-500 outline-none transition" required />
+        </div>
+        <div className="flex flex-col gap-2 md:col-span-2">
+          <label className="font-bold text-gray-600 text-sm">Pratinjau Foto</label>
+          {birdData?.image_url && <img src={birdData.image_url} alt="old" className="w-28 h-28 object-cover rounded-2xl border mb-2" />}
+          <input name="image_file" type="file" accept="image/*" className="border-2 border-dashed p-4 rounded-xl cursor-pointer hover:bg-gray-50 transition" />
+        </div>
+        <button type="submit" disabled={loading} className="md:col-span-2 bg-blue-600 text-white font-extrabold py-4 rounded-2xl hover:bg-blue-700 disabled:bg-gray-400 transition-all shadow-lg flex justify-center items-center gap-2">
+          {loading ? <Loader2 className="animate-spin" /> : 'Simpan Perubahan'}
+        </button>
+      </form>
+    </div>
+  );
+}
