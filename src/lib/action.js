@@ -5,6 +5,69 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 /**
+ * AUTH: DAFTAR AKUN BARU
+ */
+export async function handleSignup(formData) {
+  const username = formData.get('username');
+  const email = formData.get('email');
+  const password = formData.get('password');
+
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { username },
+      },
+    });
+
+    if (error) throw error;
+
+    if (data?.user) {
+      const { error: profileError } = await supabase.from('profiles').upsert([
+        {
+          id: data.user.id,
+          username,
+          role: 'user',
+          avatar_url: null,
+        },
+      ]);
+
+      if (profileError) throw profileError;
+    }
+
+    revalidatePath('/auth/signup');
+    redirect('/auth/login');
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * AUTH: UPDATE PROFIL PENGGUNA
+ */
+export async function updateProfile(formData) {
+  const userId = formData.get('userId');
+  const username = formData.get('username');
+  const avatarUrl = formData.get('avatar_url') || null;
+
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ username, avatar_url: avatarUrl })
+      .eq('id', userId);
+
+    if (error) throw error;
+
+    revalidatePath('/profile');
+    revalidatePath('/user');
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
  * CREATE: TAMBAH BURUNG
  */
 export async function addBird(formData) {
