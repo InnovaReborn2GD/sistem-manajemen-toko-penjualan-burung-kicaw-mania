@@ -7,24 +7,27 @@ import Link from 'next/link'
 export default function Navbar() {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
-  const supabase = createClientComponent()
+  const [supabase, setSupabase] = useState(null)
 
   useEffect(() => {
+    const sb = createClientComponent()
+    setSupabase(sb)
+
     const getInitialAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session } } = await sb.auth.getSession()
       setUser(session?.user ?? null)
       if (session?.user) {
-        const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
+        const { data } = await sb.from('profiles').select('*').eq('id', session.user.id).single()
         setProfile(data)
       }
     }
     getInitialAuth()
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: authListener } = sb.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         setUser(null)
         setProfile(null)
-        window.location.href = '/auth/login' // Paksa redirect bersih saat logout
+        window.location.href = '/auth/login'
       } else if (session) {
         setUser(session.user)
       }
@@ -42,7 +45,7 @@ export default function Navbar() {
             <>
               <Link href="/user">Katalog</Link>
               {profile?.role === 'admin' && <Link href="/admin/birds">Admin</Link>}
-              <button onClick={() => supabase.auth.signOut()} className="bg-red-500 px-3 py-1 rounded">Logout</button>
+              <button onClick={() => supabase?.auth.signOut()} className="bg-red-500 px-3 py-1 rounded">Logout</button>
             </>
           ) : (
             <Link href="/auth/login" className="bg-white text-blue-600 px-4 py-2 rounded">Login</Link>

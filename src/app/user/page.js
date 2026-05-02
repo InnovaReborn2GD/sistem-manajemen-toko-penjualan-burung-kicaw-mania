@@ -1,51 +1,44 @@
 'use client';
 
 import { createClientComponent } from '@/lib/supabase';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Plus, Edit, Trash2, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function KatalogPage() {
   const [birds, setBirds] = useState([]);
+  const [deletingId, setDeletingId] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const supabase = createClientComponent();
+
+  const supabase = useMemo(() => createClientComponent(), []);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
-        // 1. Ambil data burung untuk katalog
         const { data: birdsData, error: birdsError } = await supabase
           .from('birds')
           .select('*');
-        
         if (birdsError) throw birdsError;
         setBirds(birdsData || []);
 
-        // 2. Cek status autentikasi user
         const { data: { user } } = await supabase.auth.getUser();
-        
         if (user) {
-          // 3. Ambil data profil menggunakan maybeSingle() untuk menghindari error 406
-          // Ini memastikan jika data profil belum dibuat, aplikasi tidak crash
           const { data: profileData, error: profileError } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', user.id)
-            .maybeSingle(); 
-          
-          if (profileError) {
-            console.error('Gagal memuat profil:', profileError.message);
-          } else {
+            .maybeSingle();
+          if (profileError) console.error('Gagal memuat profil:', profileError.message);
+          else {
             setProfile(profileData);
             console.log('Profil berhasil dimuat:', profileData);
           }
         }
       } catch (err) {
-        console.error("Terjadi kesalahan:", err.message);
+        console.error('Terjadi kesalahan:', err.message);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -53,10 +46,33 @@ export default function KatalogPage() {
     };
 
     fetchData();
-  }, [supabase]);
+  }, []);
 
   // Logika deteksi admin yang aman dari perbedaan huruf besar/kecil
   const isAdmin = profile?.role?.toLowerCase() === 'admin';
+
+  async function handleDelete(id) {
+    const confirmDelete = window.confirm('Hapus burung ini? Data akan terhapus permanen.');
+    if (!confirmDelete) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch('/api/birds', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setBirds((prev) => prev.filter((b) => b.id !== id));
+      } else {
+        alert(json.error || 'Gagal menghapus data.');
+      }
+    } catch (err) {
+      alert(err.message || 'Gagal menghapus data.');
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   if (loading) return (
     <div className="flex justify-center items-center min-h-screen">
@@ -114,10 +130,12 @@ export default function KatalogPage() {
                   <Edit size={16} />
                 </Link>
                 <button 
-                  className="bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600 hover:scale-110 transition"
+                  onClick={() => handleDelete(bird.id)}
+                  disabled={deletingId === bird.id}
+                  className="bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600 hover:scale-110 transition disabled:opacity-50"
                   title="Hapus Burung"
                 >
-                  <Trash2 size={16} />
+                  {deletingId === bird.id ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
                 </button>
               </div>
             )}

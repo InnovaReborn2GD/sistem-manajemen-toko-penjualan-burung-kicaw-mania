@@ -2,11 +2,9 @@
 
 import { createClientComponent } from '@/lib/supabase';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
-
-const supabase = createClientComponent();
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -15,10 +13,16 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
+  const [supabase, setSupabase] = useState(null);
   const router = useRouter();
+
+  useEffect(() => {
+    setSupabase(createClientComponent());
+  }, []);
 
   async function handleLogin(e) {
     e.preventDefault();
+    if (!supabase) return;
     setLoading(true);
     setError('');
     setSuccess('');
@@ -30,7 +34,7 @@ export default function LoginPage() {
       });
 
       if (error) {
-        setError(error.message);
+        setError(error.message || 'Login gagal');
         setLoading(false);
         return;
       }
@@ -38,11 +42,7 @@ export default function LoginPage() {
       setSuccess('Login berhasil! Mengalihkan...');
       setEmail('');
       setPassword('');
-      
-      // Wait a moment for UI update, then redirect
-      setTimeout(() => {
-        router.push('/user');
-      }, 500);
+      setTimeout(() => router.push('/user'), 600);
     } catch (err) {
       setError(err.message || 'Terjadi kesalahan');
       setLoading(false);

@@ -1,6 +1,4 @@
-'use client'
-
-import { addBird } from '@/lib/action';
+"use client"
 import { useState, useRef } from 'react';
 import { CheckCircle, AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -8,7 +6,40 @@ import Link from 'next/link';
 export default function AdminBirds() {
   const [status, setStatus] = useState({ type: '', message: '' });
   const [loading, setLoading] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
   const formRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  function handleImageChange(file) {
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => setPreview(e.target.result);
+      reader.readAsDataURL(file);
+      if (fileInputRef.current) {
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInputRef.current.files = dataTransfer.files;
+      }
+    }
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    setIsDragging(true);
+  }
+
+  function handleDragLeave(e) {
+    e.preventDefault();
+    setIsDragging(false);
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleImageChange(file);
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -16,14 +47,21 @@ export default function AdminBirds() {
     setStatus({ type: '', message: '' });
 
     const formData = new FormData(event.currentTarget);
-    const result = await addBird(formData);
 
-    if (result?.success) {
-      setStatus({ type: 'success', message: 'Burung berhasil ditambahkan!' });
-      formRef.current?.reset(); 
-    } else {
-      setStatus({ type: 'error', message: result?.error || 'Gagal menyimpan data.' });
+    try {
+      const res = await fetch('/api/birds', { method: 'POST', body: formData });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setStatus({ type: 'success', message: 'Burung berhasil ditambahkan!' });
+        formRef.current?.reset();
+        setPreview(null);
+      } else {
+        setStatus({ type: 'error', message: json.error || 'Gagal menyimpan data.' });
+      }
+    } catch (err) {
+      setStatus({ type: 'error', message: err.message });
     }
+
     setLoading(false);
   }
 
@@ -77,7 +115,29 @@ export default function AdminBirds() {
 
           <div className="flex flex-col gap-2 md:col-span-2">
             <label className="text-sm font-bold text-gray-600">Foto Burung</label>
-            <input name="image_file" type="file" accept="image/*" className="border-2 border-dashed p-4 rounded-xl cursor-pointer hover:bg-gray-50 transition" required />
+            {preview && (
+              <div className="mb-4">
+                <img src={preview} alt="Preview" className="w-full max-h-64 object-cover rounded-2xl border-2 border-blue-300" />
+                <button type="button" onClick={() => { setPreview(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} className="mt-2 text-sm text-red-500 hover:text-red-700 font-semibold">Hapus Preview</button>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              name="image_file"
+              type="file"
+              accept="image/*"
+              onChange={(e) => e.target.files[0] && handleImageChange(e.target.files[0])}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed p-6 rounded-xl cursor-pointer transition text-center ${
+                isDragging
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-300 hover:bg-gray-50'
+              }`}
+              required
+            />
+            <p className="text-xs text-gray-500 text-center">Drag & drop gambar di sini atau klik untuk memilih</p>
           </div>
 
           <button 
