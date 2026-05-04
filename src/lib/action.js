@@ -135,7 +135,21 @@ export async function updateBird(id, formData) {
  */
 export async function deleteBird(id) {
   try {
-    const { error } = await supabase.from('birds').delete().eq('id', id);
+    // By default perform a soft delete (set deleted_at). To hard delete, pass an object { id, hard: true }
+    if (typeof id === 'object' && id !== null) {
+      const { id: realId, hard } = id;
+      if (hard) {
+        const { error } = await supabase.from('birds').delete().eq('id', realId);
+        if (error) throw error;
+        revalidatePath('/admin/birds');
+        revalidatePath('/');
+        return { success: true };
+      }
+      id = realId;
+    }
+
+    const deletedAt = new Date().toISOString();
+    const { error } = await supabase.from('birds').update({ deleted_at: deletedAt }).eq('id', id);
     if (error) throw error;
     revalidatePath('/admin/birds');
     revalidatePath('/');

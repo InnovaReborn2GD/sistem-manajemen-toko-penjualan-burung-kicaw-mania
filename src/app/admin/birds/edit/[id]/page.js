@@ -52,18 +52,40 @@ export default function EditBirdPage() {
     setLoading(false);
   }
 
-  async function confirmDelete() {
+  async function confirmSoftDelete() {
     setLoading(true);
     try {
-      const res = await fetch('/api/birds', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+      const res = await fetch('/api/birds', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, mode: 'soft' }) });
       const json = await res.json();
       if (res.ok && json.success) {
         setShowDeleteModal(false);
-        setStatus({ type: 'success', message: 'Produk berhasil dihapus!' });
+        setStatus({ type: 'success', message: 'Produk berhasil diarsipkan (soft delete).' });
         router.refresh();
         setTimeout(() => router.push('/user'), 1500);
       } else {
-        setStatus({ type: 'error', message: json.error || 'Gagal menghapus.' });
+        setStatus({ type: 'error', message: json.error || 'Gagal mengarsipkan.' });
+        setShowDeleteModal(false);
+        setLoading(false);
+      }
+    } catch (err) {
+      setStatus({ type: 'error', message: err.message });
+      setShowDeleteModal(false);
+      setLoading(false);
+    }
+  }
+
+  async function confirmHardDelete() {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/birds', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, mode: 'hard' }) });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setShowDeleteModal(false);
+        setStatus({ type: 'success', message: 'Produk berhasil dihapus permanen.' });
+        router.refresh();
+        setTimeout(() => router.push('/user'), 1500);
+      } else {
+        setStatus({ type: 'error', message: json.error || 'Gagal menghapus permanen.' });
         setShowDeleteModal(false);
         setLoading(false);
       }
@@ -87,14 +109,19 @@ export default function EditBirdPage() {
               <div className="bg-red-100 p-4 rounded-full text-red-600 mb-4">
                 <AlertTriangle size={32} />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Hapus Burung?</h3>
-              <p className="text-gray-500 mb-8 text-sm">
-                Apakah Anda yakin ingin menghapus <strong>{birdData.name}</strong>? Data akan hilang permanen.
-              </p>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Arsipkan atau Hapus Burung?</h3>
+              <p className="text-gray-500 mb-4 text-sm">Pilih tindakan untuk <strong>{birdData.name}</strong>:</p>
+              <ul className="text-sm text-gray-600 mb-6 space-y-2">
+                <li>• <strong>Arsipkan</strong>: menyembunyikan produk dari daftar.</li>
+                <li>• <strong>Hapus Permanen</strong>: menghapus data dari basis data (tidak dapat dikembalikan).</li>
+              </ul>
               <div className="flex gap-3 w-full">
                 <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-3 px-4 bg-gray-100 text-gray-600 font-bold rounded-2xl">Batal</button>
-                <button onClick={confirmDelete} disabled={loading} className="flex-1 py-3 px-4 bg-red-600 text-white font-bold rounded-2xl flex justify-center items-center gap-2">
-                  {loading ? <Loader2 className="animate-spin" size={18} /> : "Ya, Hapus"}
+                <button onClick={confirmSoftDelete} disabled={loading} className="flex-1 py-3 px-4 bg-yellow-500 text-white font-bold rounded-2xl flex justify-center items-center gap-2">
+                  {loading ? <Loader2 className="animate-spin" size={18} /> : "Arsipkan"}
+                </button>
+                <button onClick={confirmHardDelete} disabled={loading} className="flex-1 py-3 px-4 bg-red-600 text-white font-bold rounded-2xl flex justify-center items-center gap-2">
+                  {loading ? <Loader2 className="animate-spin" size={18} /> : "Hapus Permanen"}
                 </button>
               </div>
             </div>

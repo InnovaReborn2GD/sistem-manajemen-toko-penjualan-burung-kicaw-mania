@@ -13,6 +13,7 @@ import {
   ShoppingCart,
   X,
   History,
+  Archive,
 } from "lucide-react";
 
 export default function KatalogPage() {
@@ -21,6 +22,9 @@ export default function KatalogPage() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedBirdId, setSelectedBirdId] = useState(null);
+  const [selectedBirdName, setSelectedBirdName] = useState(null);
 
   // State untuk item yang dibeli
   const [cartItems, setCartItems] = useState([]);
@@ -35,7 +39,8 @@ export default function KatalogPage() {
 
         const { data: birdsData, error: birdsError } = await supabase
           .from("birds")
-          .select("*");
+          .select("*")
+          .is('deleted_at', null);
 
         if (birdsError) throw birdsError;
 
@@ -72,26 +77,50 @@ export default function KatalogPage() {
 
   const isAdmin = profile?.role?.toLowerCase() === "admin";
 
-  async function handleDelete(id) {
-    const confirmDelete = window.confirm(
-      "Hapus burung ini? Data akan terhapus permanen.",
-    );
+  function openDeleteModal(id, name) {
+    setSelectedBirdId(id);
+    setSelectedBirdName(name);
+    setShowDeleteModal(true);
+  }
 
-    if (!confirmDelete) return;
-
-    setDeletingId(id);
-
+  async function confirmSoftDelete() {
+    setDeletingId(selectedBirdId);
     try {
       const res = await fetch("/api/birds", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id: selectedBirdId, mode: "soft" }),
       });
 
       const json = await res.json();
 
       if (res.ok && json.success) {
-        setBirds((prev) => prev.filter((b) => b.id !== id));
+        setBirds((prev) => prev.filter((b) => b.id !== selectedBirdId));
+        setShowDeleteModal(false);
+      } else {
+        alert(json.error || "Gagal mengarsipkan data.");
+      }
+    } catch (err) {
+      alert(err.message || "Gagal mengarsipkan data.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  async function confirmHardDelete() {
+    setDeletingId(selectedBirdId);
+    try {
+      const res = await fetch("/api/birds", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: selectedBirdId, mode: "hard" }),
+      });
+
+      const json = await res.json();
+
+      if (res.ok && json.success) {
+        setBirds((prev) => prev.filter((b) => b.id !== selectedBirdId));
+        setShowDeleteModal(false);
       } else {
         alert(json.error || "Gagal menghapus data.");
       }
@@ -158,7 +187,37 @@ export default function KatalogPage() {
     );
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
+    <div className="p-8 bg-gray-50 min-h-screen relative">
+      {/* MODAL KONFIRMASI HAPUS */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">
+            <div className="flex flex-col items-center text-center">
+              <div className="bg-amber-100 p-4 rounded-full text-amber-600 mb-4">
+                <AlertCircle size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Arsipkan atau Hapus Burung?</h3>
+              <p className="text-gray-500 mb-8 text-sm">
+                Pilih tindakan untuk <strong>{selectedBirdName}</strong>:
+              </p>
+              <ul className="text-sm text-gray-600 mb-6 space-y-2 text-left">
+                <li>• <strong>Arsipkan</strong>: menyembunyikan produk dari daftar.</li>
+                <li>• <strong>Hapus Permanen</strong>: menghapus data dari basis data (tidak dapat dikembalikan).</li>
+              </ul>
+              <div className="flex gap-3 w-full">
+                <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-3 px-4 bg-gray-100 text-gray-600 font-bold rounded-2xl">Batal</button>
+                <button onClick={confirmSoftDelete} disabled={deletingId === selectedBirdId} className="flex-1 py-3 px-4 bg-yellow-500 text-white font-bold rounded-2xl flex justify-center items-center gap-2 disabled:opacity-50">
+                  {deletingId === selectedBirdId ? <Loader2 className="animate-spin" size={18} /> : "Arsipkan"}
+                </button>
+                <button onClick={confirmHardDelete} disabled={deletingId === selectedBirdId} className="flex-1 py-3 px-4 bg-red-600 text-white font-bold rounded-2xl flex justify-center items-center gap-2 disabled:opacity-50">
+                  {deletingId === selectedBirdId ? <Loader2 className="animate-spin" size={18} /> : "Hapus Permanen"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header & Tombol Tambah Admin */}
       <div className="flex justify-between items-center mb-8">
         <div>
@@ -183,7 +242,7 @@ export default function KatalogPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Link
             href="/riwayat"
             className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition shadow-md"
@@ -193,13 +252,23 @@ export default function KatalogPage() {
           </Link>
 
           {isAdmin && (
-            <Link
-              href="/admin/birds"
-              className="flex items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 transition shadow-lg transform hover:scale-105"
-            >
-              <Plus size={20} />
-              <span className="font-semibold">Tambah Burung</span>
-            </Link>
+            <>
+              <Link
+                href="/admin/birds"
+                className="flex items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 transition shadow-lg transform hover:scale-105"
+              >
+                <Plus size={20} />
+                <span className="font-semibold">Tambah Burung</span>
+              </Link>
+
+              <Link
+                href="/admin/birds/archived"
+                className="flex items-center gap-2 bg-amber-600 text-white px-5 py-2.5 rounded-lg hover:bg-amber-700 transition shadow-lg"
+              >
+                <Archive size={20} />
+                <span className="font-semibold">Arsip Burung</span>
+              </Link>
+            </>
           )}
         </div>
       </div>
@@ -231,16 +300,11 @@ export default function KatalogPage() {
                   </Link>
 
                   <button
-                    onClick={() => handleDelete(bird.id)}
-                    disabled={deletingId === bird.id}
-                    className="bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600 hover:scale-110 transition disabled:opacity-50"
+                    onClick={() => openDeleteModal(bird.id, bird.name)}
+                    className="bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600 hover:scale-110 transition"
                     title="Hapus Burung"
                   >
-                    {deletingId === bird.id ? (
-                      <Loader2 className="animate-spin" size={16} />
-                    ) : (
-                      <Trash2 size={16} />
-                    )}
+                    <Trash2 size={16} />
                   </button>
                 </div>
               )}

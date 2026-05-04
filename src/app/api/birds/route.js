@@ -13,9 +13,15 @@ function getServerSupabase() {
   return null;
 }
 
-export async function GET() {
+export async function GET(request) {
   try {
-    const { data, error } = await supabase.from('birds').select('*').order('created_at', { ascending: false });
+    const url = new URL(request.url);
+    const showDeleted = url.searchParams.get('show_deleted') === 'true';
+
+    let query = supabase.from('birds').select('*').order('created_at', { ascending: false });
+    if (!showDeleted) query = query.is('deleted_at', null);
+
+    const { data, error } = await query;
     if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 });
     return new Response(JSON.stringify({ data }), { status: 200 });
   } catch (err) {
@@ -113,13 +119,22 @@ export async function DELETE(request) {
   try {
     const body = await request.json();
     const id = body?.id;
-    // request payload logged removed to avoid terminal output
+    const mode = body?.mode || 'soft'; // 'soft' or 'hard'
     if (!id) return new Response(JSON.stringify({ error: 'Missing id' }), { status: 400 });
+
     const serverSupabase = getServerSupabase();
     const sb = serverSupabase || supabase;
     if (!serverSupabase) console.warn('No SUPABASE_SERVICE_ROLE_KEY found — delete may be blocked by RLS');
-    const { data, error } = await sb.from('birds').delete().eq('id', id).select();
-    // Supabase DELETE result logging removed
+
+    if (mode === 'hard') {
+      const { data, error } = await sb.from('birds').delete().eq('id', id).select();
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, data }), { status: 200 });
+    }
+
+    // Soft delete: set deleted_at timestamp
+    const deletedAt = new Date().toISOString();
+    const { data, error } = await sb.from('birds').update({ deleted_at: deletedAt }).eq('id', id).select();
     if (error) throw error;
     return new Response(JSON.stringify({ success: true, data }), { status: 200 });
   } catch (err) {
