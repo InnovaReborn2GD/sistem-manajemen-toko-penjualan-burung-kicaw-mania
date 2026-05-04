@@ -18,6 +18,7 @@ import {
 
 export default function KatalogPage() {
   const [birds, setBirds] = useState([]);
+  const [birdCategories, setBirdCategories] = useState({});
   const [deletingId, setDeletingId] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -37,14 +38,35 @@ export default function KatalogPage() {
       try {
         setLoading(true);
 
-        const { data: birdsData, error: birdsError } = await supabase
-          .from("birds")
-          .select("*")
-          .is('deleted_at', null);
+        const [birdsResponse, categoriesResponse, relationsResponse] = await Promise.all([
+          supabase.from("birds").select("*").is('deleted_at', null),
+          fetch('/api/categories').then((res) => res.json()),
+          fetch('/api/bird-categories').then((res) => res.json()),
+        ]);
+
+        const { data: birdsData, error: birdsError } = birdsResponse;
 
         if (birdsError) throw birdsError;
 
         setBirds(birdsData || []);
+
+        const categoriesById = Array.isArray(categoriesResponse)
+          ? categoriesResponse.reduce((acc, category) => {
+              acc[category.id_categories] = category;
+              return acc;
+            }, {})
+          : {};
+
+        const groupedCategories = Array.isArray(relationsResponse)
+          ? relationsResponse.reduce((acc, relation) => {
+              if (!acc[relation.bird_id]) acc[relation.bird_id] = [];
+              const category = categoriesById[relation.kategori_id];
+              if (category) acc[relation.bird_id].push(category);
+              return acc;
+            }, {})
+          : {};
+
+        setBirdCategories(groupedCategories);
 
         const {
           data: { user },
@@ -254,6 +276,13 @@ export default function KatalogPage() {
           {isAdmin && (
             <>
               <Link
+                href="/admin/categories"
+                className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition shadow-lg"
+              >
+                <span className="font-semibold">Kelola Kategori</span>
+              </Link>
+
+              <Link
                 href="/admin/birds"
                 className="flex items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 transition shadow-lg transform hover:scale-105"
               >
@@ -263,7 +292,7 @@ export default function KatalogPage() {
 
               <Link
                 href="/admin/birds/archived"
-                className="flex items-center gap-2 bg-amber-600 text-white px-5 py-2.5 rounded-lg hover:bg-amber-700 transition shadow-lg"
+                className="flex items-center gap-2 bg-red-600 text-white px-5 py-2.5 rounded-lg hover:bg-red-700 transition shadow-lg"
               >
                 <Archive size={20} />
                 <span className="font-semibold">Arsip Burung</span>
@@ -327,6 +356,25 @@ export default function KatalogPage() {
               <p className="text-gray-500 text-sm italic mb-3">
                 {bird.species}
               </p>
+
+              <div className="mb-4 min-h-9">
+                <div className="flex flex-wrap gap-2">
+                {Array.isArray(birdCategories[bird.id]) && birdCategories[bird.id].length > 0 ? (
+                  birdCategories[bird.id].map((category) => (
+                    <span
+                      key={category.id_categories}
+                      className="inline-flex items-center rounded-full border border-blue-100 bg-blue-50/90 px-3 py-1 text-[11px] font-semibold tracking-wide text-blue-700 shadow-sm"
+                    >
+                      {category.cat_name}
+                    </span>
+                  ))
+                ) : (
+                  <span className="inline-flex items-center rounded-full border border-dashed border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-semibold tracking-wide text-gray-400">
+                    Tanpa kategori
+                  </span>
+                )}
+                </div>
+              </div>
 
               <div className="flex justify-between items-end mt-2">
                 <div>

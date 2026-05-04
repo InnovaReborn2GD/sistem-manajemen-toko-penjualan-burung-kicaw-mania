@@ -37,6 +37,17 @@ export async function POST(request) {
     const price = parseFloat(formData.get('price')) || 0;
     const stock = parseInt(formData.get('stock')) || 0;
     const imageFile = formData.get('image_file');
+    const categoryIdsRaw = formData.get('category_ids') || '[]';
+    let categoryIds = [];
+
+    try {
+      const parsed = JSON.parse(categoryIdsRaw);
+      if (Array.isArray(parsed)) {
+        categoryIds = parsed.map((id) => Number(id)).filter((id) => Number.isInteger(id));
+      }
+    } catch {
+      categoryIds = [];
+    }
 
     // request payload logged removed to avoid terminal output
 
@@ -59,9 +70,16 @@ export async function POST(request) {
 
     const { data, error } = await sb.from('birds').insert([
       { name, species, price, stock, image_url: imageUrl, is_hidden: false }
-    ]).select();
+    ]).select().single();
     // Supabase INSERT result logging removed
     if (error) throw error;
+
+    if (data?.id && categoryIds.length > 0) {
+      const relationRows = categoryIds.map((kategori_id) => ({ bird_id: data.id, kategori_id }));
+      const { error: relationError } = await sb.from('bird_categories').insert(relationRows);
+      if (relationError) throw relationError;
+    }
+
     return new Response(JSON.stringify({ success: true, data }), { status: 200 });
   } catch (err) {
     return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500 });

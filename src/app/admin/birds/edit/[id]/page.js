@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { createClientComponent } from '@/lib/supabase';
 import { ArrowLeft, Loader2, CheckCircle, Trash2, AlertTriangle, X } from 'lucide-react';
 import Link from 'next/link';
+import CategorySelect from '@/component/CategorySelect';
 
 export default function EditBirdPage() {
   const { id } = useParams();
@@ -14,6 +15,8 @@ export default function EditBirdPage() {
   const [mounted, setMounted] = useState(false);
   const [status, setStatus] = useState({ type: '', message: '' });
   const [birdData, setBirdData] = useState(null);
+  const [initialCategories, setInitialCategories] = useState([]);
+  const [selectedCategoryDetails, setSelectedCategoryDetails] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const supabase = useMemo(() => createClientComponent(), []);
 
@@ -24,8 +27,24 @@ export default function EditBirdPage() {
   useEffect(() => {
     if (!mounted || !id) return;
     async function getBird() {
-      const { data } = await supabase.from('birds').select('*').eq('id', id).single();
+      const [birdResult, categoriesResult] = await Promise.all([
+        supabase.from('birds').select('*').eq('id', id).single(),
+        fetch(`/api/bird-categories?bird_id=${id}`).then((res) => res.json()),
+      ]);
+
+      const categoriesData = await fetch('/api/categories').then((res) => res.json());
+
+      const { data } = birdResult;
       if (data) setBirdData(data);
+      if (Array.isArray(categoriesResult)) {
+        const categoryIds = categoriesResult.map((item) => item.kategori_id);
+        setInitialCategories(categoryIds);
+        if (Array.isArray(categoriesData)) {
+          setSelectedCategoryDetails(
+            categoriesData.filter((category) => categoryIds.includes(category.id_categories))
+          );
+        }
+      }
       setFetching(false);
     }
     getBird();
@@ -169,6 +188,26 @@ export default function EditBirdPage() {
           <label className="font-bold text-gray-600 text-sm">Pratinjau Foto</label>
           {birdData.image_url && <img src={birdData.image_url} alt="old" className="w-28 h-28 object-cover rounded-2xl border mb-2" />}
           <input name="image_file" type="file" accept="image/*" className="border-2 border-dashed p-4 rounded-xl cursor-pointer hover:bg-gray-50 transition" />
+        </div>
+        <div className="md:col-span-2 rounded-2xl border border-blue-100 bg-blue-50/80 p-4">
+          <p className="text-sm font-bold text-blue-900 mb-3">Kategori saat ini</p>
+          {selectedCategoryDetails.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {selectedCategoryDetails.map((category) => (
+                <span
+                  key={category.id_categories}
+                  className="inline-flex items-center rounded-full border border-blue-200 bg-white px-3 py-1 text-[11px] font-semibold tracking-wide text-blue-700 shadow-sm"
+                >
+                  {category.cat_name}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-blue-700/80">Belum ada kategori dipilih.</p>
+          )}
+        </div>
+        <div className="md:col-span-2">
+          <CategorySelect birdId={id} initialCategories={initialCategories} />
         </div>
         <button type="submit" disabled={loading} className="md:col-span-2 bg-blue-600 text-white font-extrabold py-4 rounded-2xl hover:bg-blue-700 disabled:bg-gray-400 transition-all shadow-lg flex justify-center items-center gap-2">
           {loading ? <Loader2 className="animate-spin" /> : 'Simpan Perubahan'}

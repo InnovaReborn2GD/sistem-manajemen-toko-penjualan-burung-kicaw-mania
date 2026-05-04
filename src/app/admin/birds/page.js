@@ -1,15 +1,35 @@
 "use client"
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { CheckCircle, AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminBirds() {
   const [status, setStatus] = useState({ type: '', message: '' });
   const [loading, setLoading] = useState(false);
+  const [categoryLoading, setCategoryLoading] = useState(true);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
   const [preview, setPreview] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const formRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const res = await fetch('/api/categories');
+        const data = await res.json();
+        setCategories(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Failed to load categories', err);
+        setCategories([]);
+      } finally {
+        setCategoryLoading(false);
+      }
+    }
+
+    fetchCategories();
+  }, []);
 
   function handleImageChange(file) {
     if (file && file.type.startsWith('image/')) {
@@ -47,6 +67,7 @@ export default function AdminBirds() {
     setStatus({ type: '', message: '' });
 
     const formData = new FormData(event.currentTarget);
+    formData.set('category_ids', JSON.stringify(selectedCategoryIds));
 
     try {
       const res = await fetch('/api/birds', { method: 'POST', body: formData });
@@ -55,6 +76,7 @@ export default function AdminBirds() {
         setStatus({ type: 'success', message: 'Burung berhasil ditambahkan!' });
         formRef.current?.reset();
         setPreview(null);
+        setSelectedCategoryIds([]);
       } else {
         setStatus({ type: 'error', message: json.error || 'Gagal menyimpan data.' });
       }
@@ -138,6 +160,50 @@ export default function AdminBirds() {
               required
             />
             <p className="text-xs text-gray-500 text-center">Drag & drop gambar di sini atau klik untuk memilih</p>
+          </div>
+
+          <div className="md:col-span-2 flex flex-col gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+            <div>
+              <label className="text-sm font-bold text-gray-600">Kategori Burung</label>
+              <p className="text-xs text-gray-500 mt-1">Pilih satu atau lebih kategori untuk burung ini.</p>
+            </div>
+
+            {categoryLoading ? (
+              <p className="text-sm text-gray-500">Memuat kategori...</p>
+            ) : categories.length === 0 ? (
+              <p className="text-sm text-gray-500">Belum ada kategori tersedia.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {categories.map((category) => {
+                  const checked = selectedCategoryIds.includes(category.id_categories);
+                  return (
+                    <label
+                      key={category.id_categories}
+                      className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition ${
+                        checked ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:bg-gray-50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          setSelectedCategoryIds((prev) =>
+                            prev.includes(category.id_categories)
+                              ? prev.filter((id) => id !== category.id_categories)
+                              : [...prev, category.id_categories]
+                          );
+                        }}
+                        className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div>
+                        <div className="font-semibold text-gray-800">{category.cat_name}</div>
+                        <div className="text-xs text-gray-500">{category.habitat || 'Habitat tidak diisi'}</div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <button 
