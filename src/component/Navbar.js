@@ -44,7 +44,6 @@ export default function Navbar() {
           {user ? (
             <>
               <Link href="/user">Katalog</Link>
-              {profile?.role === 'admin' && <Link href="/admin/birds">Admin</Link>}
               <button onClick={() => supabase?.auth.signOut()} className="bg-red-500 px-3 py-1 rounded">Logout</button>
             </>
           ) : (
