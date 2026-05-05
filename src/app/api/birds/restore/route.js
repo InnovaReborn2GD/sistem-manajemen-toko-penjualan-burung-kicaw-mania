@@ -23,6 +23,24 @@ export async function POST(request) {
     const sb = serverSupabase || supabase;
     if (!serverSupabase) console.warn('No SUPABASE_SERVICE_ROLE_KEY found — restore may be blocked by RLS');
 
+    const { data: birdData, error: birdError } = await sb
+      .from('birds')
+      .select('stock, deleted_at')
+      .eq('id', id)
+      .single();
+
+    if (birdError) throw birdError;
+
+    if (Number(birdData?.stock || 0) <= 0) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Burung dengan stok 0 tidak bisa dipulihkan. Tambahkan stok terlebih dahulu.',
+        }),
+        { status: 400 }
+      );
+    }
+
     const { data, error } = await sb.from('birds').update({ deleted_at: null }).eq('id', id).select();
     if (error) throw error;
     return new Response(JSON.stringify({ success: true, data }), { status: 200 });
