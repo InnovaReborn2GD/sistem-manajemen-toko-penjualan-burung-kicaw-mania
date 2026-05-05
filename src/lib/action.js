@@ -39,6 +39,7 @@ export async function handleSignup(formData) {
     revalidatePath('/auth/signup');
     redirect('/auth/login');
   } catch (err) {
+    console.error('handleSignup error:', err);
     return { success: false, error: err.message };
   }
 }

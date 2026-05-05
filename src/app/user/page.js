@@ -37,7 +37,7 @@ export default function KatalogPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClientComponent(), []);
 
-  // 1. Ambil data keranjang dari LocalStorage saat mount
+  // 1. Ambil data keranjang dari LocalStorage saat pertama kali load agar tidak hilang
   useEffect(() => {
     const savedCart = localStorage.getItem("activeCartKicau");
     if (savedCart) {
@@ -58,9 +58,18 @@ export default function KatalogPage() {
     }
   }, [cartItems, isInitialLoad]);
 
-  // 3. Lock Scroll saat keranjang/modal terbuka
+  // 3. Lock Scroll Latar Belakang & Fungsi Cleanup agar halaman selanjutnya bisa di-scroll
   useEffect(() => {
-    document.body.style.overflow = isCartOpen || showDeleteModal ? "hidden" : "unset";
+    if (isCartOpen || showDeleteModal) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+
+    // Membersihkan style saat berpindah halaman (router.push)
+    return () => {
+      document.body.style.overflow = "unset";
+    };
   }, [isCartOpen, showDeleteModal]);
 
   useEffect(() => {
@@ -112,7 +121,7 @@ export default function KatalogPage() {
 
   const isAdmin = profile?.role?.toLowerCase() === "admin";
 
-  // --- FUNGSI UPDATE KERANJANG ADAPTIF ---
+  // --- FUNGSI UPDATE KERANJANG ADAPTIF (+/-) ---
   function updateCartQuantity(bird, delta) {
     setCartItems((prev) => {
       const existingItem = prev.find((item) => item.id === bird.id);
@@ -141,28 +150,8 @@ export default function KatalogPage() {
   return (
     <div className="bg-gray-50 min-h-screen relative overflow-x-hidden">
       
-      {/* OVERLAY */}
-      {isCartOpen && <div className="fixed inset-0 bg-black/40 z-[60] backdrop-blur-sm" onClick={() => setIsCartOpen(false)} />}
-
-      {/* MODAL HAPUS (KODE ASLI ANDA) */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">
-            <div className="flex flex-col items-center text-center">
-              <div className="bg-amber-100 p-4 rounded-full text-amber-600 mb-4"><AlertCircle size={32} /></div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Arsipkan atau Hapus Burung?</h3>
-              <p className="text-gray-500 mb-8 text-sm">Pilih tindakan untuk <strong>{selectedBirdName}</strong>:</p>
-              <div className="flex flex-col gap-3 w-full">
-                <div className="flex gap-2">
-                  <button onClick={() => {/* confirmSoftDelete */}} className="flex-1 py-3 bg-yellow-500 text-white font-bold rounded-2xl">Arsipkan</button>
-                  <button onClick={() => {/* confirmHardDelete */}} className="flex-1 py-3 bg-red-600 text-white font-bold rounded-2xl">Hapus</button>
-                </div>
-                <button onClick={() => setShowDeleteModal(false)} className="w-full py-3 bg-gray-100 text-gray-600 font-bold rounded-2xl">Batal</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* DRAWER OVERLAY (BACKDROP) */}
+      {isCartOpen && <div className="fixed inset-0 bg-black/40 z-[60] backdrop-blur-sm transition-opacity" onClick={() => setIsCartOpen(false)} />}
 
       <div className="max-w-7xl mx-auto p-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
@@ -179,7 +168,7 @@ export default function KatalogPage() {
             <Link href={isAdmin ? "/admin/orders" : "/riwayat"} className="relative flex items-center gap-2 bg-white text-gray-700 border border-gray-200 px-5 py-3 rounded-2xl hover:bg-gray-50 transition shadow-sm font-bold text-sm">
               <History size={18} />
               {isAdmin ? "Pesanan Masuk" : "Riwayat Saya"}
-              {isAdmin && pendingCount > 0 && <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center bg-red-600 text-white text-[10px] font-black rounded-full border-2 border-white">{pendingCount}</span>}
+              {isAdmin && pendingCount > 0 && <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center bg-red-500 text-white text-[10px] font-black rounded-full border-2 border-white">{pendingCount}</span>}
             </Link>
 
             {!isAdmin && (
@@ -224,12 +213,13 @@ export default function KatalogPage() {
 
                   {isAdmin ? (
                     <div className="flex gap-2">
-                      <Link href={`/admin/birds/edit/${bird.id}`} className="flex-1 bg-yellow-400 text-white py-3 rounded-xl flex justify-center font-bold"><Edit size={18} /></Link>
+                      <Link href={`/admin/birds/edit/${bird.id}`} className="flex-1 bg-yellow-400 text-white py-3 rounded-xl flex justify-center font-bold transition hover:bg-yellow-500"><Edit size={18} /></Link>
                       <button onClick={() => {setSelectedBirdId(bird.id); setSelectedBirdName(bird.name); setShowDeleteModal(true);}} className="flex-1 bg-red-100 text-red-600 py-3 rounded-xl flex justify-center"><Trash2 size={18} /></button>
                     </div>
                   ) : (
                     <div className="h-14">
                       {itemInCart ? (
+                        /* TOMBOL ADAPTIF SAAT SUDAH DI KERANJANG */
                         <div className="flex items-center justify-between bg-blue-50 border-2 border-blue-600 rounded-xl p-1 h-full animate-in zoom-in-95 duration-200">
                           <button onClick={() => updateCartQuantity(bird, -1)} className="w-10 h-10 flex items-center justify-center bg-white text-blue-600 rounded-lg shadow-sm hover:bg-red-50 hover:text-red-600 transition"><Minus size={18} /></button>
                           <span className="font-black text-blue-900 text-lg">{itemInCart.quantity}</span>
@@ -249,7 +239,7 @@ export default function KatalogPage() {
         </div>
       </div>
 
-      {/* DRAWER KERANJANG */}
+      {/* DRAWER KERANJANG (PANEL KANAN) */}
       <div className={`fixed right-0 top-0 h-screen w-[380px] bg-white shadow-2xl z-[70] flex flex-col transition-transform duration-500 ease-in-out ${isCartOpen ? "translate-x-0" : "translate-x-full"}`}>
         <div className="p-6 border-b flex items-center justify-between bg-blue-900 text-white">
           <div className="flex items-center gap-3">
@@ -272,7 +262,7 @@ export default function KatalogPage() {
                 <div className="flex-1">
                   <h4 className="font-bold text-gray-800 text-sm truncate">{item.name}</h4>
                   <p className="text-blue-600 font-black text-xs">Rp {item.price.toLocaleString("id-ID")} x {item.quantity}</p>
-                  <p className="text-gray-900 font-bold text-sm mt-1">Total: Rp {(item.price * item.quantity).toLocaleString("id-ID")}</p>
+                  <p className="text-gray-900 font-bold text-sm mt-1">Rp {(item.price * item.quantity).toLocaleString("id-ID")}</p>
                 </div>
                 <button onClick={() => setCartItems(prev => prev.filter(i => i.id !== item.id))} className="absolute top-2 right-2 p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={14}/></button>
               </div>
