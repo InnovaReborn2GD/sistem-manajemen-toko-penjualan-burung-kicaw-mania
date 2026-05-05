@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { createClientComponent } from "@/lib/supabase";
 import { updateProfile } from "@/lib/action"; 
-import { Mail, History, Loader2, CheckCircle, Package, LogOut } from "lucide-react";
+import { Mail, History, Loader2, CheckCircle, Package, LogOut, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -77,8 +77,19 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-10">
-      <div className="max-w-4xl mx-auto space-y-8">
+      <div className="max-w-4xl mx-auto space-y-6">
         
+        {/* Tombol Kembali */}
+        <div>
+          <Link 
+            href="/user" 
+            className="inline-flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors font-bold"
+          >
+            <ArrowLeft size={20} />
+            Kembali ke Katalog
+          </Link>
+        </div>
+
         {/* Header Title */}
         <div>
           <h1 className="text-3xl font-black text-gray-900 tracking-tight">Profil Pengguna</h1>
