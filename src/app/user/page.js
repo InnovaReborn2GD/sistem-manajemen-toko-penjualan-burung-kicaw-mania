@@ -15,7 +15,8 @@ import {
   History,
   Archive,
   Minus,
-  Tag, // Tambahkan icon Tag untuk mempercantik kategori (opsional)
+  Tag,
+  CheckCircle, // Tambahan icon untuk notifikasi sukses
 } from "lucide-react";
 
 export default function KatalogPage() {
@@ -25,7 +26,12 @@ export default function KatalogPage() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // State untuk Pop-up / Modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false); // Modal kosongkan keranjang
+  const [toast, setToast] = useState({ show: false, message: "", type: "info" }); // Toast Notifikasi
+  
   const [selectedBirdId, setSelectedBirdId] = useState(null);
   const [selectedBirdName, setSelectedBirdName] = useState(null);
 
@@ -37,6 +43,15 @@ export default function KatalogPage() {
 
   const router = useRouter();
   const supabase = useMemo(() => createClientComponent(), []);
+
+  // Fungsi memunculkan Toast Notification
+  function showToast(message, type = "error") {
+    setToast({ show: true, message, type });
+    // Hilangkan otomatis setelah 3 detik
+    setTimeout(() => {
+      setToast({ show: false, message: "", type: "" });
+    }, 3000);
+  }
 
   // 1. Ambil data keranjang dari LocalStorage
   useEffect(() => {
@@ -61,7 +76,7 @@ export default function KatalogPage() {
 
   // 3. Lock Scroll Latar Belakang
   useEffect(() => {
-    if (isCartOpen || showDeleteModal) {
+    if (isCartOpen || showDeleteModal || showClearModal) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "unset";
@@ -69,7 +84,7 @@ export default function KatalogPage() {
     return () => {
       document.body.style.overflow = "unset";
     };
-  }, [isCartOpen, showDeleteModal]);
+  }, [isCartOpen, showDeleteModal, showClearModal]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -120,7 +135,7 @@ export default function KatalogPage() {
 
   const isAdmin = profile?.role?.toLowerCase() === "admin";
 
-  // --- FUNGSI PENGHAPUSAN ---
+  // --- FUNGSI PENGHAPUSAN (Admin) ---
   async function confirmSoftDelete() {
     setDeletingId(selectedBirdId);
     try {
@@ -133,8 +148,9 @@ export default function KatalogPage() {
       if (res.ok && json.success) {
         setBirds((prev) => prev.filter((b) => b.id !== selectedBirdId));
         setShowDeleteModal(false);
+        showToast("Burung berhasil diarsipkan", "success");
       }
-    } catch (err) { alert(err.message); } finally { setDeletingId(null); }
+    } catch (err) { showToast(err.message, "error"); } finally { setDeletingId(null); }
   }
 
   async function confirmHardDelete() {
@@ -149,8 +165,9 @@ export default function KatalogPage() {
       if (res.ok && json.success) {
         setBirds((prev) => prev.filter((b) => b.id !== selectedBirdId));
         setShowDeleteModal(false);
+        showToast("Burung berhasil dihapus permanen", "success");
       }
-    } catch (err) { alert(err.message); } finally { setDeletingId(null); }
+    } catch (err) { showToast(err.message, "error"); } finally { setDeletingId(null); }
   }
 
   // --- FUNGSI KERANJANG ---
@@ -160,14 +177,26 @@ export default function KatalogPage() {
       if (existingItem) {
         const newQuantity = existingItem.quantity + delta;
         if (newQuantity < 1) return prev.filter((item) => item.id !== bird.id);
+        
+        // Peringatan stok jika melebihi batas menggunakan Custom Toast
         if (newQuantity > bird.stock) {
-          alert("Stok tidak mencukupi");
+          showToast(`Stok ${bird.name} hanya tersisa ${bird.stock} ekor!`, "error");
           return prev;
         }
         return prev.map((item) => item.id === bird.id ? { ...item, quantity: newQuantity } : item);
       }
       return delta > 0 ? [...prev, { ...bird, quantity: 1 }] : prev;
     });
+  }
+
+  function handleClearCartClick() {
+    setShowClearModal(true); // Tampilkan modal kustom
+  }
+
+  function confirmClearCart() {
+    setCartItems([]);
+    setShowClearModal(false);
+    showToast("Keranjang berhasil dikosongkan", "success");
   }
 
   function handleContinuePayment() {
@@ -182,10 +211,39 @@ export default function KatalogPage() {
   return (
     <div className="bg-gray-50 min-h-screen relative overflow-x-hidden">
       
+      {/* TOAST NOTIFICATION (POP UP KECIL DI ATAS) */}
+      {toast.show && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[150] flex items-center gap-3 px-6 py-4 bg-gray-900 text-white rounded-2xl shadow-2xl animate-in slide-in-from-top-4 fade-in duration-300">
+          {toast.type === "error" ? (
+            <AlertCircle size={20} className="text-red-400" />
+          ) : (
+            <CheckCircle size={20} className="text-green-400" />
+          )}
+          <span className="text-sm font-bold tracking-wide">{toast.message}</span>
+        </div>
+      )}
+
       {/* DRAWER OVERLAY */}
       {isCartOpen && <div className="fixed inset-0 bg-black/40 z-[60] backdrop-blur-sm transition-opacity" onClick={() => setIsCartOpen(false)} />}
 
-      {/* MODAL KONFIRMASI HAPUS */}
+      {/* MODAL KONFIRMASI KOSONGKAN KERANJANG */}
+      {showClearModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center">
+              <div className="bg-red-100 p-4 rounded-full text-red-600 mb-4"><Trash2 size={32} /></div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Kosongkan Keranjang?</h3>
+              <p className="text-gray-500 mb-8 text-sm">Semua burung yang telah Anda pilih akan dihapus dari keranjang pesanan.</p>
+              <div className="flex gap-3 w-full">
+                <button onClick={() => setShowClearModal(false)} className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-2xl transition">Batal</button>
+                <button onClick={confirmClearCart} className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-2xl shadow-lg transition">Kosongkan</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL KONFIRMASI HAPUS BURUNG (ADMIN) */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
@@ -195,14 +253,14 @@ export default function KatalogPage() {
               <p className="text-gray-500 mb-8 text-sm">Pilih tindakan untuk <strong>{selectedBirdName}</strong>:</p>
               <div className="flex flex-col gap-3 w-full">
                 <div className="flex gap-2">
-                  <button onClick={confirmSoftDelete} disabled={deletingId !== null} className="flex-1 py-3 bg-yellow-500 text-white font-bold rounded-2xl flex justify-center items-center gap-2">
+                  <button onClick={confirmSoftDelete} disabled={deletingId !== null} className="flex-1 py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-2xl flex justify-center items-center gap-2 transition">
                     {deletingId === selectedBirdId ? <Loader2 className="animate-spin" size={18} /> : "Arsipkan"}
                   </button>
-                  <button onClick={confirmHardDelete} disabled={deletingId !== null} className="flex-1 py-3 bg-red-600 text-white font-bold rounded-2xl flex justify-center items-center gap-2">
+                  <button onClick={confirmHardDelete} disabled={deletingId !== null} className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-2xl flex justify-center items-center gap-2 transition">
                     {deletingId === selectedBirdId ? <Loader2 className="animate-spin" size={18} /> : "Hapus"}
                   </button>
                 </div>
-                <button onClick={() => setShowDeleteModal(false)} disabled={deletingId !== null} className="w-full py-3 bg-gray-100 text-gray-600 font-bold rounded-2xl">Batal</button>
+                <button onClick={() => setShowDeleteModal(false)} disabled={deletingId !== null} className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-2xl transition">Batal</button>
               </div>
             </div>
           </div>
@@ -247,7 +305,6 @@ export default function KatalogPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {birds.map((bird) => {
             const itemInCart = cartItems.find(item => item.id === bird.id);
-            // MENGAMBIL KATEGORI UNTUK BURUNG INI
             const bCats = birdCategories[bird.id] || [];
 
             return (
@@ -260,7 +317,6 @@ export default function KatalogPage() {
                   <div className="flex-grow">
                     <p className="text-gray-400 text-xs italic mb-2">{bird.species}</p>
                     
-                    {/* --- TAMPILAN BADGE KATEGORI --- */}
                     {bCats.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mb-4">
                         {bCats.map((cat, idx) => (
@@ -316,17 +372,30 @@ export default function KatalogPage() {
           {cartItems.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-gray-400"><ShoppingCart size={64} className="mb-4 opacity-20" /><p className="font-bold italic">Keranjang masih kosong</p></div>
           ) : (
-            cartItems.map((item) => (
-              <div key={item.id} className="flex gap-4 p-3 bg-gray-50 rounded-2xl border border-gray-100 relative group">
-                <img src={item.image_url} className="h-20 w-20 object-cover rounded-xl shadow-sm" alt="" />
-                <div className="flex-1">
-                  <h4 className="font-bold text-gray-800 text-sm truncate">{item.name}</h4>
-                  <p className="text-blue-600 font-black text-xs">Rp {item.price.toLocaleString("id-ID")} x {item.quantity}</p>
-                  <p className="text-gray-900 font-bold text-sm mt-1">Total: Rp {(item.price * item.quantity).toLocaleString("id-ID")}</p>
-                </div>
-                <button onClick={() => setCartItems(prev => prev.filter(i => i.id !== item.id))} className="absolute top-2 right-2 p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={14}/></button>
+            <>
+              {/* --- TOMBOL KOSONGKAN KERANJANG --- */}
+              <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-100">
+                <span className="text-sm font-bold text-gray-500">{cartItems.length} Item terpilih</span>
+                <button 
+                  onClick={handleClearCartClick} 
+                  className="text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg flex items-center gap-1 transition"
+                >
+                  <Trash2 size={14} /> Kosongkan
+                </button>
               </div>
-            ))
+
+              {cartItems.map((item) => (
+                <div key={item.id} className="flex gap-4 p-3 bg-gray-50 rounded-2xl border border-gray-100 relative group">
+                  <img src={item.image_url} className="h-20 w-20 object-cover rounded-xl shadow-sm" alt="" />
+                  <div className="flex-1">
+                    <h4 className="font-bold text-gray-800 text-sm truncate">{item.name}</h4>
+                    <p className="text-blue-600 font-black text-xs">Rp {item.price.toLocaleString("id-ID")} x {item.quantity}</p>
+                    <p className="text-gray-900 font-bold text-sm mt-1">Total: Rp {(item.price * item.quantity).toLocaleString("id-ID")}</p>
+                  </div>
+                  <button onClick={() => setCartItems(prev => prev.filter(i => i.id !== item.id))} className="absolute top-2 right-2 p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={14}/></button>
+                </div>
+              ))}
+            </>
           )}
         </div>
 
