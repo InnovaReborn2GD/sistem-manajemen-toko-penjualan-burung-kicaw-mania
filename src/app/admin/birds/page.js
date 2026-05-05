@@ -134,15 +134,6 @@ export default function AdminBirds() {
           </div>
 
           <div className="flex flex-col gap-2 md:col-span-2">
-            <label className="text-sm font-bold text-gray-600">Deskripsi Burung</label>
-            <textarea 
-              name="description" 
-              placeholder="Masukkan detail keunggulan burung, pola makan, atau prestasi..." 
-              className="border-2 p-3 rounded-xl focus:border-blue-500 outline-none resize-none h-32" 
-            />
-          </div>
-
-          <div className="flex flex-col gap-2 md:col-span-2">
             <label className="text-sm font-bold text-gray-600">Foto Burung</label>
             {preview && (
               <div className="mb-4">

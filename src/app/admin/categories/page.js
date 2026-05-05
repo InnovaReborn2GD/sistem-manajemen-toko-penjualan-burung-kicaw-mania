@@ -33,11 +33,12 @@ export default function AdminCategoriesPage() {
           setProfile(profileData || null);
         }
         await fetchCategories();
+      } catch (err) {
+        console.error("Initialization error:", err);
       } finally {
         setLoading(false);
       }
     }
-
     init();
   }, [supabase]);
 
@@ -77,13 +78,26 @@ export default function AdminCategoriesPage() {
     setEditingCategory(null);
     setForm(emptyForm);
     setError('');
+    setTimeout(() => setMessage(''), 3000);
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
+    
     if (!profile || profile.role !== 'admin') {
       setError('Hanya admin yang dapat mengelola kategori.');
       return;
+    }
+
+    if (!form.cat_name.trim()) {
+      setError('Nama kategori wajib diisi.');
+      return;
+    }
+
+    // PROTEKSI EKSTRA: Jika sedang mode edit, pastikan ID-nya benar-benar ada dan berupa angka
+    if (editingCategory && (!editingCategory.id_categories || isNaN(editingCategory.id_categories))) {
+        setError('Error: ID Kategori tidak valid untuk diupdate.');
+        return;
     }
 
     setSaving(true);
@@ -93,32 +107,37 @@ export default function AdminCategoriesPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
+      
       const payload = {
         cat_name: form.cat_name.trim(),
         cat_desc: form.cat_desc.trim(),
         habitat: form.habitat.trim(),
       };
 
-      const response = await fetch(
-        editingCategory ? `/api/categories/${editingCategory.id_categories}` : '/api/categories',
-        {
-          method: editingCategory ? 'PUT' : 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-        }
-      );
+      const targetId = editingCategory?.id_categories || editingCategory?.id;
+      const url = editingCategory 
+        ? `/api/categories/${targetId}` 
+        : '/api/categories';
+
+      const response = await fetch(url, {
+        method: editingCategory ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
 
       const result = await response.json();
+
       if (!response.ok) {
         throw new Error(result.error || 'Gagal menyimpan kategori');
       }
 
       setMessage(editingCategory ? 'Kategori berhasil diperbarui.' : 'Kategori berhasil ditambahkan.');
-      closeForm();
+      
       await fetchCategories();
+      closeForm();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -126,18 +145,33 @@ export default function AdminCategoriesPage() {
     }
   }
 
-  async function handleDelete(category) {
-    if (!confirm(`Hapus kategori "${category.cat_name}"?`)) return;
+async function handleDelete(category) {
+    // 1. AMBIL ID DINAMIS: Mendukung kolom bernama 'id_categories' maupun 'id'
+    const targetId = category?.id_categories || category?.id;
+
+    // 2. PROTEKSI EKSTRA: Validasi ketat menggunakan targetId
+    if (!targetId || isNaN(targetId)) {
+      setError("Error: ID Kategori tidak valid untuk dihapus.");
+      
+      // Console log ini akan membantu Anda melihat isi data asli jika error lagi
+      console.log("Data Kategori yang diklik:", category); 
+      return;
+    }
+
+    if (!confirm(`Hapus kategori "${category.cat_name}"? Tindakan ini akan menghapus semua relasi kategori pada burung.`)) return;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const response = await fetch(`/api/categories/${category.id_categories}`, {
+      
+      // 3. GUNAKAN targetId PADA URL
+      const response = await fetch(`/api/categories/${targetId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
 
       const result = await response.json();
+      
       if (!response.ok) {
         throw new Error(result.error || 'Gagal menghapus kategori');
       }
@@ -146,6 +180,8 @@ export default function AdminCategoriesPage() {
       await fetchCategories();
     } catch (err) {
       setError(err.message);
+      // Bersihkan error message setelah beberapa detik agar tabel tidak terdorong
+      setTimeout(() => setError(''), 4000); 
     }
   }
 
@@ -153,7 +189,7 @@ export default function AdminCategoriesPage() {
     <div className="min-h-screen bg-slate-50 px-4 py-8 md:px-8">
       <div className="mx-auto max-w-6xl">
         
-        {/* Tombol Kembali ke Katalog */}
+        {/* Header Section */}
         <div className="mb-8">
           <Link 
             href="/user" 
