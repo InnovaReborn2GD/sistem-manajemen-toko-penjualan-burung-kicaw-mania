@@ -23,7 +23,7 @@ export default function AdminOrdersPage() {
   // State untuk Fitur Search, Filter, Sort
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("newest");
+  const [sortBy, setSortBy] = useState("newest"); // Default terbaru
 
   // --- STATE PAGINATION ---
   const [currentPage, setCurrentPage] = useState(1);
@@ -85,6 +85,8 @@ export default function AdminOrdersPage() {
   // --- LOGIKA FILTERING & SORTING ---
   const filteredAndSortedOrders = useMemo(() => {
     let result = [...orders];
+
+    // 1. Filtering (Search)
     if (searchTerm) {
       const lowerSearch = searchTerm.toLowerCase();
       result = result.filter((o) => 
@@ -93,6 +95,8 @@ export default function AdminOrdersPage() {
         o.purchase_items?.some(item => (item.bird_name || "").toLowerCase().includes(lowerSearch))
       );
     }
+
+    // 2. Filtering (Status)
     if (statusFilter !== "all") {
       result = result.filter((o) => {
         const status = (o.payment_status || "pending").toLowerCase();
@@ -102,6 +106,8 @@ export default function AdminOrdersPage() {
         return true;
       });
     }
+
+    // 3. Sorting (Pengurutan)
     result.sort((a, b) => {
       if (sortBy === "newest") return new Date(b.created_at) - new Date(a.created_at);
       if (sortBy === "oldest") return new Date(a.created_at) - new Date(b.created_at);
@@ -109,6 +115,7 @@ export default function AdminOrdersPage() {
       if (sortBy === "lowest") return a.total_price - b.total_price;
       return 0;
     });
+
     return result;
   }, [orders, searchTerm, statusFilter, sortBy]);
 
@@ -225,8 +232,8 @@ export default function AdminOrdersPage() {
           </div>
         )}
 
-        {/* CONTROLS */}
-        <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 mb-6 flex flex-col md:flex-row gap-4">
+        {/* CONTROLS (Search, Filter, Sort, Row Count) */}
+        <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 mb-6 flex flex-col xl:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
@@ -237,11 +244,12 @@ export default function AdminOrdersPage() {
               className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all"
             />
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
+            {/* Filter Status */}
             <select 
               value={statusFilter} 
               onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              className="px-6 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none cursor-pointer appearance-none"
+              className="px-6 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none cursor-pointer appearance-none shadow-sm"
             >
               <option value="all">Semua Status</option>
               <option value="pending">Pending</option>
@@ -249,7 +257,23 @@ export default function AdminOrdersPage() {
               <option value="success">Selesai</option>
             </select>
             
-            <div className="flex items-center gap-2 bg-white px-4 py-3 rounded-2xl border border-slate-200">
+            {/* Sort Dropdown */}
+            <div className="relative">
+              <ArrowUpDown className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <select 
+                value={sortBy} 
+                onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
+                className="pl-11 pr-8 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none cursor-pointer appearance-none shadow-sm"
+              >
+                <option value="newest">Terbaru</option>
+                <option value="oldest">Terlama</option>
+                <option value="highest">Termahal</option>
+                <option value="lowest">Termurah</option>
+              </select>
+            </div>
+
+            {/* Row Count */}
+            <div className="flex items-center gap-2 bg-white px-4 py-3 rounded-2xl border border-slate-200 shadow-sm">
                <span className="text-xs font-bold text-slate-400 uppercase">Baris:</span>
                <select 
                 value={itemsPerPage} 
@@ -272,7 +296,7 @@ export default function AdminOrdersPage() {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100 text-slate-400">
                   <th className="p-6 text-[11px] font-black uppercase tracking-widest">Pembeli & ID Pesanan</th>
-                  <th className="p-6 text-[11px] font-black uppercase tracking-widest">Rincian Item</th>
+                  <th className="p-6 text-[11px] font-black uppercase tracking-widest text-center">Rincian Item</th>
                   <th className="p-6 text-[11px] font-black uppercase tracking-widest w-64">Pengiriman & Pembayaran</th>
                   <th className="p-6 text-[11px] font-black uppercase tracking-widest">Tanggal & Total</th>
                   <th className="p-6 text-[11px] font-black uppercase tracking-widest text-right">Ubah Status</th>
@@ -289,7 +313,6 @@ export default function AdminOrdersPage() {
 
                   return (
                     <tr key={order.id} className="hover:bg-blue-50/20 transition-colors">
-                      
                       <td className="p-6 align-top">
                         <div className="flex items-center gap-3 group">
                           <button 
@@ -320,7 +343,7 @@ export default function AdminOrdersPage() {
                         </div>
                       </td>
 
-                      <td className="p-6 align-top">
+                      <td className="p-6 align-top text-center">
                         <div className="space-y-3">
                           <div className="flex gap-2 text-xs">
                             <MapPin size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
@@ -365,7 +388,6 @@ export default function AdminOrdersPage() {
                           </div>
                         )}
                       </td>
-
                     </tr>
                   );
                 }) : (
@@ -383,7 +405,7 @@ export default function AdminOrdersPage() {
           {filteredAndSortedOrders.length > 0 && (
             <div className="p-6 bg-slate-50 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                Menampilkan <span className="text-slate-700">{(currentPage - 1) * itemsPerPage + 1}</span> - <span className="text-slate-700">{Math.min(currentPage * itemsPerPage, filteredAndSortedOrders.length)}</span> dari <span className="text-slate-700">{filteredAndSortedOrders.length}</span> Pesanan
+                Halaman <span className="text-slate-700">{currentPage}</span> dari <span className="text-slate-700">{totalPages}</span>
               </p>
               
               <div className="flex items-center gap-2">
