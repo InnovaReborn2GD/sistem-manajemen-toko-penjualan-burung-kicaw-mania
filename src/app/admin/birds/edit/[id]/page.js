@@ -120,7 +120,6 @@ export default function EditBirdPage() {
   return (
     <div className="p-8 max-w-4xl mx-auto min-h-screen relative">
       
-      {/* MODAL KONFIRMASI HAPUS */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">
@@ -183,6 +182,15 @@ export default function EditBirdPage() {
         <div className="flex flex-col gap-2">
           <label className="font-bold text-gray-600 text-sm">Stok</label>
           <input name="stock" type="number" defaultValue={birdData.stock || 0} className="border-2 p-3 rounded-xl focus:border-blue-500 outline-none transition" required />
+        </div>
+        <div className="flex flex-col gap-2 md:col-span-2">
+          <label className="font-bold text-gray-600 text-sm">Deskripsi Burung</label>
+          <textarea 
+            name="description" 
+            defaultValue={birdData.description || ''} 
+            placeholder="Update deskripsi burung..." 
+            className="border-2 p-3 rounded-xl focus:border-blue-500 outline-none transition resize-none h-32" 
+          />
         </div>
         <div className="flex flex-col gap-2 md:col-span-2">
           <label className="font-bold text-gray-600 text-sm">Pratinjau Foto</label>

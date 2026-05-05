@@ -90,10 +90,9 @@ export default function AdminBirds() {
   return (
     <div className="p-8 max-w-4xl mx-auto min-h-screen">
       
-      {/* TOMBOL KEMBALI KE HALAMAN USER */}
       <div className="mb-6">
         <Link 
-          href="/user" // <--- Ganti ke "/" untuk kembali ke halaman utama (user page)
+          href="/user" 
           className="inline-flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors font-medium"
         >
           <ArrowLeft size={20} />
@@ -103,7 +102,6 @@ export default function AdminBirds() {
 
       <h1 className="text-3xl font-bold text-gray-800 mb-8">Tambah Burung Baru</h1>
 
-      {/* Sisa kode form tetap sama seperti sebelumnya... */}
       {status.message && (
         <div className={`p-4 mb-6 rounded-2xl text-white flex items-center gap-3 shadow-lg ${
           status.type === 'success' ? 'bg-green-500' : 'bg-red-500'
@@ -133,6 +131,15 @@ export default function AdminBirds() {
           <div className="flex flex-col gap-2">
             <label className="text-sm font-bold text-gray-600">Stok</label>
             <input name="stock" type="number" placeholder="0" className="border-2 p-3 rounded-xl focus:border-blue-500 outline-none" required />
+          </div>
+
+          <div className="flex flex-col gap-2 md:col-span-2">
+            <label className="text-sm font-bold text-gray-600">Deskripsi Burung</label>
+            <textarea 
+              name="description" 
+              placeholder="Masukkan detail keunggulan burung, pola makan, atau prestasi..." 
+              className="border-2 p-3 rounded-xl focus:border-blue-500 outline-none resize-none h-32" 
+            />
           </div>
 
           <div className="flex flex-col gap-2 md:col-span-2">
