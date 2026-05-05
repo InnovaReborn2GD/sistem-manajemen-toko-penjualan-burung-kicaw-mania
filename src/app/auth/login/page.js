@@ -112,6 +112,10 @@ export default function LoginPage() {
           {loading ? 'Sedang login...' : 'Masuk'}
         </button>
         
+        <div className="mb-4 text-right mt-2">
+          <Link href="/auth/forgot-password" className="text-sm text-blue-600 hover:underline">Lupa password?</Link>
+        </div>
+
         <p className="text-center mt-4 text-sm">
           Belum punya akun? <Link href="/auth/signup" className="text-blue-600 hover:underline">Daftar di sini</Link>
         </p>
