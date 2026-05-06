@@ -16,16 +16,22 @@ import {
   Archive,
   Minus,
   Tag,
-  CheckCircle, // Tambahan icon untuk notifikasi sukses
+  CheckCircle,
+  Search, // Tambahan icon untuk pencarian
 } from "lucide-react";
 
 export default function KatalogPage() {
   const [birds, setBirds] = useState([]);
   const [birdCategories, setBirdCategories] = useState({});
+  const [categories, setCategories] = useState([]); // Tambahan state untuk list kategori
   const [deletingId, setDeletingId] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // State untuk pencarian dan filter
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState(null);
   
   // State untuk Pop-up / Modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -100,9 +106,10 @@ export default function KatalogPage() {
         if (birdsError) throw birdsError;
         setBirds(birdsData || []);
 
-        const categoriesById = Array.isArray(categoriesResponse)
-          ? categoriesResponse.reduce((acc, cat) => ({ ...acc, [cat.id_categories]: cat }), {})
-          : {};
+        const categoriesData = Array.isArray(categoriesResponse) ? categoriesResponse : [];
+        setCategories(categoriesData);
+
+        const categoriesById = categoriesData.reduce((acc, cat) => ({ ...acc, [cat.id_categories]: cat }), {});
 
         const groupedCategories = Array.isArray(relationsResponse)
           ? relationsResponse.reduce((acc, rel) => {
@@ -134,6 +141,22 @@ export default function KatalogPage() {
   };
 
   const isAdmin = profile?.role?.toLowerCase() === "admin";
+
+  // Filter burung berdasarkan pencarian dan kategori
+  const filteredBirds = useMemo(() => {
+    return birds.filter((bird) => {
+      const matchesSearch =
+        bird.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        bird.species.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (birdCategories[bird.id] || []).some((cat) =>
+          cat.cat_name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+
+      const matchesCategory = selectedCategory === null || (birdCategories[bird.id] || []).some((cat) => cat.id_categories === selectedCategory);
+
+      return matchesSearch && matchesCategory;
+    });
+  }, [birds, searchTerm, selectedCategory, birdCategories]);
 
   // --- FUNGSI PENGHAPUSAN (Admin) ---
   async function confirmSoftDelete() {
@@ -279,11 +302,12 @@ export default function KatalogPage() {
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
-            <Link href={isAdmin ? "/admin/orders" : "/riwayat"} className="relative flex items-center gap-2 bg-white text-gray-700 border border-gray-200 px-5 py-3 rounded-2xl hover:bg-gray-50 transition shadow-sm font-bold text-sm">
-              <History size={18} />
-              {isAdmin ? "Pesanan Masuk" : "Riwayat Saya"}
-              {isAdmin && pendingCount > 0 && <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center bg-red-500 text-white text-[10px] font-black rounded-full border-2 border-white">{pendingCount}</span>}
-            </Link>
+            {!isAdmin && (
+              <Link href="/riwayat" className="relative flex items-center gap-2 bg-white text-gray-700 border border-gray-200 px-5 py-3 rounded-2xl hover:bg-gray-50 transition shadow-sm font-bold text-sm">
+                <History size={18} />
+                Riwayat Saya
+              </Link>
+            )}
 
             {!isAdmin && (
               <button onClick={() => setIsCartOpen(true)} className="relative flex items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-2xl hover:bg-blue-700 transition shadow-lg font-bold text-sm">
@@ -291,19 +315,49 @@ export default function KatalogPage() {
                 {cartItems.length > 0 && <span className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center bg-red-500 text-white text-[10px] font-black rounded-full border-2 border-white animate-bounce">{cartItems.length}</span>}
               </button>
             )}
-
-            {isAdmin && (
-              <>
-                <Link href="/admin/categories" className="bg-blue-50 text-blue-700 px-5 py-3 rounded-2xl transition font-bold text-sm border border-blue-100">Kelola Kategori</Link>
-                <Link href="/admin/birds/archived" className="bg-gray-800 text-white px-5 py-3 rounded-2xl transition font-bold text-sm flex items-center gap-2"><Archive size={18} /> Arsip</Link>
-                <Link href="/admin/birds" className="bg-green-600 text-white px-6 py-3 rounded-2xl transition font-bold text-sm flex items-center gap-2 shadow-lg active:scale-95"><Plus size={20} /> Tambah Burung</Link>
-              </>
-            )}
           </div>
         </div>
 
+        {/* Kotak Pencarian dan Filter Kategori */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-8 items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-3 items-center flex-1 w-full sm:w-auto">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <input
+                type="text"
+                placeholder="Cari burung berdasarkan nama, jenis, atau kategori..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Tag className="text-gray-500" size={20} />
+              <select
+                value={selectedCategory || ""}
+                onChange={(e) => setSelectedCategory(e.target.value ? parseInt(e.target.value) : null)}
+                className="px-4 py-3 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition bg-white"
+              >
+                <option value="">Semua Kategori</option>
+                {categories.map((cat) => (
+                  <option key={cat.id_categories} value={cat.id_categories}>
+                    {cat.cat_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {isAdmin && (
+            <div className="flex items-center gap-3 flex-wrap">
+              <Link href="/admin/categories" className="bg-blue-50 text-blue-700 px-5 py-3 rounded-2xl transition font-bold text-sm border border-blue-100">Kelola Kategori</Link>
+              <Link href="/admin/birds/archived" className="bg-gray-800 text-white px-5 py-3 rounded-2xl transition font-bold text-sm flex items-center gap-2"><Archive size={18} /> Arsip</Link>
+              <Link href="/admin/birds" className="bg-green-600 text-white px-6 py-3 rounded-2xl transition font-bold text-sm flex items-center gap-2 shadow-lg active:scale-95"><Plus size={20} /> Tambah Burung</Link>
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {birds.map((bird) => {
+          {filteredBirds.map((bird) => {
             const itemInCart = cartItems.find(item => item.id === bird.id);
             const bCats = birdCategories[bird.id] || [];
 
