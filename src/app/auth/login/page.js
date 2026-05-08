@@ -42,7 +42,13 @@ export default function LoginPage() {
       setSuccess('Login berhasil! Mengalihkan...');
       setEmail('');
       setPassword('');
-      setTimeout(() => router.push('/user'), 600);
+      
+      // LENGKAPI DI SINI: Tambahkan router.refresh() agar Navbar ikut berubah
+      setTimeout(() => {
+        router.push('/user');
+        router.refresh(); 
+      }, 600);
+      
     } catch (err) {
       setError(err.message || 'Terjadi kesalahan');
       setLoading(false);
